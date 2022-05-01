@@ -18,6 +18,20 @@ async function run(){
         await client.connect();
         const automobileCollection = client.db("automobiles").collection("vehicles");
     
+        //Get Items
+        app.get('/vehicle',async(req,res)=>{
+            console.log("query:",req.query);
+            const size = parseInt(req.query.size);
+            const query = {};
+            const cursor = automobileCollection.find(query);
+            let vehicles
+            if (size) {
+               vehicles = await cursor.limit(size).toArray();  
+            }else{
+                vehicles = await cursor.toArray();
+            }
+            res.send(vehicles);
+        })
         
         //Post Items
         app.post('/vehicle',async(req,res)=>{
