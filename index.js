@@ -1,4 +1,5 @@
 const express = require("express");
+var jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -8,6 +9,23 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  console.log("inside verify:", authHeader);
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access" });
+    }
+    console.log("Decoded:", decoded);
+    req.decoded = decoded;
+    next();
+  });
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.uyj2p.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
@@ -23,9 +41,16 @@ async function run() {
       .db("automobiles")
       .collection("vehicles");
 
+    //JWT Authentication
+    app.post("/login", async (req, res) => {
+      const user = req.body;
+      const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1d",
+      });
+      res.send({ accessToken });
+    });
     //Get Items
     app.get("/vehicle", async (req, res) => {
-      console.log("query:", req.query);
       const size = parseInt(req.query.size);
       const query = {};
       const cursor = automobileCollection.find(query);
@@ -81,13 +106,18 @@ async function run() {
       res.send(result);
     });
     //Get Items by email
-    app.get('/myItems',async(req,res)=>{
-        const email = req.query.email;
-        const query = {email: email}; 
+    app.get("/myItems", verifyJWT, async (req, res) => {
+      const decodedEmail = req.decoded.email;
+      const email = req.query.email;
+      if (decodedEmail === email) {
+        const query = { email: email };
         const cursor = automobileCollection.find(query);
         const items = await cursor.toArray();
-        res.send(items)
-    })
+        res.send(items);
+      } else {
+        res.status(403).send({ message: "Forbidden access" });
+      }
+    });
     //Update
     app.put("/inventory/:id", async (req, res) => {
       const id = req.params.id;
