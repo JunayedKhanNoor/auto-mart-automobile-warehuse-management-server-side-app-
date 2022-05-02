@@ -44,6 +44,28 @@ async function run() {
       const inventory = await automobileCollection.findOne(query);
       res.send(inventory);
     });
+    //Page Count
+    app.get("/inventoryCount", async (req, res) => {
+      const count = await automobileCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
+    //get inventory by page number
+    app.get("/inventoriesPage", async (req, res) => {
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      const query = {};
+      const cursor = automobileCollection.find(query);
+      let inventory;
+      if (page || size) {
+        inventory = await cursor
+          .skip(page * size)
+          .limit(size)
+          .toArray();
+      } else {
+        inventory = await cursor.toArray();
+      }
+      res.send(inventory);
+    });
 
     //Post Items
     app.post("/vehicle", async (req, res) => {
@@ -52,11 +74,19 @@ async function run() {
       res.send(result);
     });
     //delete
-    app.delete('/inventory/:id', async(req,res)=>{
-        const id = req.params.id;
-        const query = {_id: ObjectId(id)};
-        const result =  await automobileCollection.deleteOne(query);
-        res.send(result);
+    app.delete("/inventory/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await automobileCollection.deleteOne(query);
+      res.send(result);
+    });
+    //Get Items by email
+    app.get('/myItems',async(req,res)=>{
+        const email = req.query.email;
+        const query = {email: email}; 
+        const cursor = automobileCollection.find(query);
+        const items = await cursor.toArray();
+        res.send(items)
     })
     //Update
     app.put("/inventory/:id", async (req, res) => {
